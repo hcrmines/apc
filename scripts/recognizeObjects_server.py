@@ -62,9 +62,9 @@ class Recognizer:
 
         cv2.imwrite('/home/hcrws1/Documents/Toolbox/sds_eccv2014/image_to_recognize.jpg',self.cv_image)
 
-        # os.system(r"""cd /home/hcrws1/Documents/Toolbox/sds_eccv2014 && matlab -nodisplay -nosplash -nodesktop -r "run('startup_sds.m');run('demo_apc.m');exit;" """)
+        # os.system(r"""cd /home/hcrws1/Documents/Toolbox/sds_eccv2014 && rm -r cachedir/* && matlab -nodisplay -nosplash -nodesktop -r "run('startup_sds.m');run('demo_apc.m');exit;" """)
 
-        # os.system(r"""cd /home/hcrws1/Documents/Toolbox/sds_eccv2014 && matlab -r "run('startup_sds.m');run('demo_apc.m');exit;" """)
+        # os.system(r"""cd /home/hcrws1/Documents/Toolbox/sds_eccv2014 && rm -r cachedir/* && matlab -r "run('startup_sds.m');run('demo_apc.m');exit;" """)
 
         rr = sio.loadmat('/home/hcrws1/Documents/Toolbox/sds_eccv2014/recognition_results.mat')
 
