@@ -1,4 +1,7 @@
 Header header
+
+bool is3d
+
 int32 job_number
 int32 obj_id
 char bin_loc

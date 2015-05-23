@@ -23,14 +23,13 @@ class Recognizer:
 
         self.cv_image = None
 
-        # need to add two masks - one for 2d, one for 3d
         self.mask = -1*np.ones((480,640))
         self.categories = []
         self.scores = []
         self.centroids_x = [];
-        self.centroids_y = [];
-        self.angles_ma = [];
-        self.angles_mi = [];
+	self.centroids_y = [];
+	self.angles_ma = [];
+	self.angles_mi = [];
 
         self.count = 0
         self.cam_num = -1
@@ -80,17 +79,17 @@ class Recognizer:
         self.mask = rr['mask']
         self.categories = rr['det2cat'][0]
         self.scores = rr['det2scores'][0]
-    self.centroids_x = rr['cen_x'][0]
-    self.centroids_y = rr['cen_y'][0]
-    self.angles_ma = rr['ang_ma'][0]
-    self.angles_mi = rr['ang_mi'][0]
+	self.centroids_x = rr['cen_x'][0]
+	self.centroids_y = rr['cen_y'][0]
+	self.angles_ma = rr['ang_ma'][0]
+	self.angles_mi = rr['ang_mi'][0]
         # print rr['det2cat'][0]
         # print rr['det2scores'][0]
 
         self.pub_mask.publish(self.bridge.cv2_to_imgmsg(self.mask,"mono8"))
         self.pub_cloud.publish(self.cloud)
         time.sleep(2);
-        self.pub_rec_info.publish(RecInfo(int(self.count),self.cam_num == 0,len(self.scores),self.categories,self.scores),self.centroids_x,self.centroids_y,self.angles_ma,self.angles_mi)
+        self.pub_rec_info.publish(RecInfo(int(self.count),self.cam_num == 0,len(self.scores),self.categories,self.scores))
 
     def acknowledge(self,req):
         self.cam_num = req.camera_num
