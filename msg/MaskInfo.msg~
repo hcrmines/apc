@@ -1,7 +1,0 @@
-Header header
-
-bool is3d
-sensor_msgs/PointCloud2 scene
-
-int32[] det2cat
-float32[] det2score
