@@ -12,9 +12,11 @@ find_package(catkin REQUIRED COMPONENTS
 	sensor_msgs
 	geometry_msgs
 	std_msgs
-        image_transport
-    	cv_bridge
+    image_transport
+  	cv_bridge
 	message_generation
+    actionlib_msgs
+    actionlib
 )
 find_package(OpenCV REQUIRED)
 
@@ -68,11 +70,11 @@ add_service_files(
 )
 
 ## Generate actions in the 'action' folder
-# add_action_files(
-#   FILES
-#   Action1.action
+ add_action_files(
+   FILES
+   MoveTo.action
 #   Action2.action
-# )
+ )
 
 ## Generate added messages and services with any dependencies listed here
 generate_messages(
@@ -80,6 +82,7 @@ generate_messages(
   std_msgs
   sensor_msgs
   geometry_msgs
+  actionlib_msgs
 )
 
 ###################################
@@ -115,16 +118,20 @@ include_directories(
 
 ## Declare a cpp executable
 add_executable(AnalyzeMask src/AnalyzeMask.cpp)
-
+add_executable(ActionServer src/ActionBridge.cpp)
 ## Add cmake target dependencies of the executable/library
 ## as an example, message headers may need to be generated before nodes
 # add_dependencies(threeD_node threeD_generate_messages_cpp)
+add_dependencies(ActionServer apc_generate_messages_cpp)
 
 ## Specify libraries to link a library or executable target against
 target_link_libraries(AnalyzeMask
   ${catkin_LIBRARIES} ${OpenCV_LIBRARIES}
 )
 
+target_link_libraries(ActionServer
+ ${catkin_LIBRARIES}
+)
 #############
 ## Install ##
 #############
