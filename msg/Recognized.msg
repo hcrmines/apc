@@ -1,5 +1,3 @@
-Header header
-
 bool is3d
 
 int32 job_number

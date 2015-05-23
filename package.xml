@@ -20,6 +20,13 @@
   <build_depend>cv_bridge</build_depend>
   <build_depend>opencv2</build_depend>
   <build_depend>message_generation</build_depend>
+  <build_depend>actionlib</build_depend>
+  <build_depend>actionlib_msgs</build_depend>
+  <build_depend>moveit_core</build_depend>
+  <build_depend>moveit_ros_planning_interface</build_depend>
+  <build_depend>openni_camera</build_depend>
+  <build_depend>openni_launch</build_depend>
+  <build_depend>message_runtime</build_depend>
 
   <run_depend>pcl_conversions</run_depend>
   <run_depend>pcl_ros</run_depend>
@@ -33,6 +40,13 @@
   <run_depend>cv_bridge</run_depend>
   <run_depend>opencv2</run_depend>
   <run_depend>message_runtime</run_depend>
+  <run_depend>actionlib</run_depend>
+  <run_depend>actionlib_msgs</run_depend>
+  <run_depend>message_generation</run_depend>
+  <run_depend>openni_camera</run_depend>
+  <run_depend>openni_launch</run_depend>
+  <run_depend>moveit_ros_planning_interface</run_depend>
+  <run_depend>moveit_core</run_depend>
 
   <export>
   </export>

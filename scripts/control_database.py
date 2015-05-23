@@ -78,7 +78,7 @@ def prioritizeWorkOrder():
 		else:
 			bin_type = 0
 		score = ((0.5*bonus+bin_type)*grasp/13.5)
-		scored_work_order.append([order['bin'][-1], order['item'], score, 0]) #Currently uppercase
+		scored_work_order.append([order['item'], order['bin'][-1], score, 0]) #Currently uppercase
 	scored_work_order_decreasing = sorted(scored_work_order, key=lambda x: x[2], reverse=True)
 	#pprint(scored_work_order_decreasing)
 	json_data.close()
@@ -104,7 +104,7 @@ class StateKeeper:
 		self.targets = prioritizeWorkOrder()
 
 
-	def addState(data):
+	def addState(self, data):
 		tempLambda = lambda d: d.obj_id==data.obj_id and \
 			d.job_number!=data.job_number #and /
 			#d.bin_loc==data.bin_loc
@@ -115,12 +115,12 @@ class StateKeeper:
 				
 		self.states.append(copy.deepcopy(data))
 
-	def successState(data):
+	def successState(self, data):
 		self.completed.append((data.obj_id, data.bin_loc))
 		f =  open(self.fileName, 'w')
 		json.dump(self.completed, f)
 
-	def updateConfidence(data):
+	def updateConfidence(self, data):
 		tempLambda = lambda d: d.obj_id==data.obj_id and \
 			d.job_number==data.job_number #and \
 			#d.bin_loc==data.bin_loc
@@ -129,10 +129,11 @@ class StateKeeper:
 		for eachObject in objectsFound:
 			eachObject.confidence = 0
 
-	def getNextTarget():
+	def getNextTarget(self):
 		maxScore = -1
 		maxObject = 0
 		maxTarget = 0
+		#print self.targets
 		for target in self.targets:
 			for state in self.states:
 				if objects[state.obj_id]==target[0]:
@@ -152,7 +153,7 @@ class StateKeeper:
 				maxTarget = target
 				maxObject=target[1]
 
-		maxTarget[4] += 1
+		maxTarget[3] += 1
 		return maxObject
 
 

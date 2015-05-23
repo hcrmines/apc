@@ -33,6 +33,7 @@ ActionBridge::ActionBridge() : client("MoveTo", true){
 }
 
 void ActionBridge::callback(apc::Recognized info_msg){
+  ROS_INFO("received move message");
   apc::Recognized msg_clone = info_msg;
   id = info_msg.obj_id;
   centX = info_msg.centroid_x;
@@ -70,8 +71,11 @@ void ActionBridge::callback(apc::Recognized info_msg){
       //goal.moveAction = apc::MoveToGoal::MOVE_ALONG_LINE;
     }
   }
+  ROS_INFO("sending goal");
   client.sendGoal(goal);
+  ROS_INFO("starting to wait");
   client.waitForResult(ros::Duration(60.0));
+  ROS_INFO("done waiting");
   //publish
   if(client.getState() == actionlib::SimpleClientGoalState::SUCCEEDED){
     msg_clone.confidence = 1;
@@ -80,11 +84,13 @@ void ActionBridge::callback(apc::Recognized info_msg){
     msg_clone.confidence = 0;
   }
   pub.publish(msg_clone);
+  ROS_INFO("published");
 }
 
 int main(int argc, char** argv){
   ROS_INFO(" init action server node");
-  ros::init(argc, argv, "action_bridge");
+  ros::init(argc, argv, "ActionBridge");
   ActionBridge ab;
+  ROS_INFO("action bridge created");
   ros::spin();
 }

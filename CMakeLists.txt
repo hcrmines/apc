@@ -1,9 +1,6 @@
 cmake_minimum_required(VERSION 2.8.3)
 project(apc)
 
-## Find catkin macros and libraries
-## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
-## is used, also find other catkin packages
 find_package(catkin REQUIRED COMPONENTS
 	pcl_conversions
 	pcl_ros
@@ -17,56 +14,31 @@ find_package(catkin REQUIRED COMPONENTS
 	message_generation
     actionlib_msgs
     actionlib
+ moveit_core
+  moveit_ros_planning_interface
 )
 find_package(OpenCV REQUIRED)
 
+#catkin_python_setup()
+
 ## System dependencies are found with CMake's conventions
-# find_package(Boost REQUIRED COMPONENTS system)
+ find_package(Boost REQUIRED COMPONENTS system)
 
 
-## Uncomment this if the package has a setup.py. This macro ensures
-## modules and global scripts declared therein get installed
-## See http://ros.org/doc/api/catkin/html/user_guide/setup_dot_py.html
-# catkin_python_setup()
-
-################################################
-## Declare ROS messages, services and actions ##
-################################################
-
-## To declare and build messages, services or actions from within this
-## package, follow these steps:
-## * Let MSG_DEP_SET be the set of packages whose message types you use in
-##   your messages/services/actions (e.g. std_msgs, actionlib_msgs, ...).
-## * In the file package.xml:
-##   * add a build_depend and a run_depend tag for each package in MSG_DEP_SET
-##   * If MSG_DEP_SET isn't empty the following dependencies might have been
-##     pulled in transitively but can be declared for certainty nonetheless:
-##     * add a build_depend tag for "message_generation"
-##     * add a run_depend tag for "message_runtime"
-## * In this file (CMakeLists.txt):
-##   * add "message_generation" and every package in MSG_DEP_SET to
-##     find_package(catkin REQUIRED COMPONENTS ...)
-##   * add "message_runtime" and every package in MSG_DEP_SET to
-##     catkin_package(CATKIN_DEPENDS ...)
-##   * uncomment the add_*_files sections below as needed
-##     and list every .msg/.srv/.action file to be processed
-##   * uncomment the generate_messages entry below
-##   * add every package in MSG_DEP_SET to generate_messages(DEPENDENCIES ...)
-
-## Generate messages in the 'msg' folder
 add_message_files(
-  FILES
-  RecInfo.msg
-  objRec.msg
-  recRes.msg
-  Recognized.msg
-  Recognition.msg
+    FILES
+    MatInfo.msg
+    RecInfo.msg
+    objRec.msg
+    recRes.msg
+    Recognized.msg
+    Recognition.msg
+    AddScoop.msg
 )
 
-## Generate services in the 'srv' folder
 add_service_files(
-  FILES
-  recognizeObjects.srv
+    FILES
+    recognizeObjects.srv
 )
 
 ## Generate actions in the 'action' folder
@@ -83,11 +55,9 @@ generate_messages(
   sensor_msgs
   geometry_msgs
   actionlib_msgs
+
 )
 
-###################################
-## catkin specific configuration ##
-###################################
 ## The catkin_package macro generates cmake config files for your package
 ## Declare things to be passed to dependent projects
 ## INCLUDE_DIRS: uncomment this if you package contains header files
@@ -96,27 +66,53 @@ generate_messages(
 ## DEPENDS: system dependencies of this project that dependent projects also need
 catkin_package(
 #  INCLUDE_DIRS include
-#  LIBRARIES threeD
-#  CATKIN_DEPENDS other_catkin_pkg
+#  LIBRARIES apc
+    CATKIN_DEPENDS moveit_core moveit_ros_planning_interface geometry_msgs openni_camera openni_launch roscpp std_msgs actionlib_msgs message_generation message_runtime
+    DEPENDS system_lib
 #  DEPENDS system_lib
 )
+
+
+
 
 ###########
 ## Build ##
 ###########
 
-## Specify additional locations of header files
-## Your package locations should be listed before other locations
 include_directories(
-	${catkin_INCLUDE_DIRS} ${OpenCV_INCLUDE_DIRS}
+    ${catkin_INCLUDE_DIRS} ${OpenCV_INCLUDE_DIRS}
 )
 
-## Declare a cpp library
-# add_library(threeD
-#   src/${PROJECT_NAME}/threeD.cpp
-# )
-
 ## Declare a cpp executable
+ add_executable(next_object_node src/next_object.cpp)
+ add_executable(move_arm_node src/move_arm.cpp)
+ add_executable(add_objects_node src/add_objects.cpp)
+ add_executable(move_server src/move_server.cpp)
+ add_executable(test_move_node src/test_move.cpp)
+
+## Add cmake target dependencies of the executable/library
+## as an example, message headers may need to be generated before nodes
+ add_dependencies(move_server apc_generate_messages_cpp)
+ add_dependencies(test_move_node apc_generate_messages_cpp)
+ add_dependencies(add_objects_node apc_generate_messages_cpp)
+
+## Specify libraries to link a library or executable target against
+ target_link_libraries(next_object_node
+   ${catkin_LIBRARIES}
+ )
+ target_link_libraries(move_arm_node
+   ${catkin_LIBRARIES}
+ )
+ target_link_libraries(move_server
+   ${catkin_LIBRARIES}
+ )
+ target_link_libraries(test_move_node
+   ${catkin_LIBRARIES}
+ )
+ target_link_libraries(add_objects_node
+   ${catkin_LIBRARIES}
+ )
+
 add_executable(AnalyzeMask src/AnalyzeMask.cpp)
 add_executable(ActionServer src/ActionBridge.cpp)
 ## Add cmake target dependencies of the executable/library
@@ -125,8 +121,9 @@ add_executable(ActionServer src/ActionBridge.cpp)
 add_dependencies(ActionServer apc_generate_messages_cpp)
 
 ## Specify libraries to link a library or executable target against
+
 target_link_libraries(AnalyzeMask
-  ${catkin_LIBRARIES} ${OpenCV_LIBRARIES}
+    ${catkin_LIBRARIES} ${OpenCV_LIBRARIES}
 )
 
 target_link_libraries(ActionServer

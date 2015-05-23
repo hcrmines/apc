@@ -21,7 +21,7 @@
 #include <opencv2/imgproc/imgproc.hpp>
 
 // local stuff
-#include <apc/RecInfo.h>
+#include <apc/MatInfo.h>
 #include <apc/Recognized.h>
 #include <apc/Recognition.h>
 
@@ -30,7 +30,7 @@ typedef pcl::PointCloud<pcl::PointXYZ>::Ptr Cloud;
 class AnalyzeMask {
     public: 
         AnalyzeMask();
-        void receive_mask_info(apc::RecInfo);
+        void receive_mask_info(apc::MatInfo);
         void receive_scene(const sensor_msgs::PointCloud2&);
         void receive_mask(const sensor_msgs::ImageConstPtr&);
     private:
@@ -58,7 +58,6 @@ class AnalyzeMask {
         tf::TransformListener transform;
 
         std::vector<Cloud> apply_mask();
-        std::vector<std::vector<float> > analyze_2d(bool);
         std::vector<std::vector<float> > analyze_3d(std::vector<Cloud>);
 };
 
@@ -68,17 +67,17 @@ AnalyzeMask::AnalyzeMask() : itnh(nh) {
  
     mask_info_sub = nh.subscribe("/apc/recognition_information", 1, 
                                  &AnalyzeMask::receive_mask_info, this);
-    //scene_sub = nh.subscribe("/apc/recognition_pcl", 1, 
-    //                         &AnalyzeMask::receive_scene, this);
-    scene_sub = nh.subscribe("/camera/depth/points", 1, 
+    scene_sub = nh.subscribe("/apc/recognition_pcl", 1, 
                              &AnalyzeMask::receive_scene, this);
+    //scene_sub = nh.subscribe("/camera/depth/points", 1, 
+    //                         &AnalyzeMask::receive_scene, this);
     mask_sub = itnh.subscribe("/apc/recognition_mask_image", 1, 
                               &AnalyzeMask::receive_mask, this);
     rec_pub = nh.advertise<apc::Recognition>("/apc/recognition", 1);
 }
 
 // Receive flag for 2d/3d, point cloud if necessary, and two vectors
-void AnalyzeMask::receive_mask_info(apc::RecInfo mask_msg) {
+void AnalyzeMask::receive_mask_info(apc::MatInfo mask_msg) {
     ROS_INFO("> received mask info");
     job_number = mask_msg.job_number;
     det2cat = mask_msg.categories;
@@ -92,7 +91,6 @@ void AnalyzeMask::receive_mask_info(apc::RecInfo mask_msg) {
     if (mask_msg.is3d) {
         // pull out info
         std::vector<Cloud> clusters = apply_mask();
-        //std::vector<std::vector<float> > data_2d = analyze_2d(true);
         std::vector<std::vector<float> > data_3d = analyze_3d(clusters);
 
         // publish
@@ -107,8 +105,6 @@ void AnalyzeMask::receive_mask_info(apc::RecInfo mask_msg) {
             rec.centroid_x = data_3d[i][0];
             rec.centroid_y = data_3d[i][1];
             rec.centroid_z = data_3d[i][2];
-            //rec.angle_ma = data_2d[i][0];
-            //rec.angle_mi = data_2d[i][1];
             rec.angle_ma = angles_ma[i];
             rec.angle_mi = angles_mi[i];
             objects.push_back(rec);
@@ -120,8 +116,6 @@ void AnalyzeMask::receive_mask_info(apc::RecInfo mask_msg) {
         rec_msg.recognitions = objects;
         rec_pub.publish(rec_msg);
     } else {
-        // only get 2d info
-        //std::vector<std::vector<float> > data_2d = analyze_2d(false);
         std::vector<apc::Recognized> objects;
         for (int i = 1; i <= ndet; i++) {
             if (centroids_x[i] == -1) { continue; }
@@ -130,15 +124,13 @@ void AnalyzeMask::receive_mask_info(apc::RecInfo mask_msg) {
             rec.job_number = job_number;
             rec.obj_id = det2cat[i];
             rec.confidence = det2score[i];
-            //rec.angle_ma = data_2d[i][0];
-            //rec.angle_mi = data_2d[i][1];
             rec.angle_ma = angles_ma[i];
             rec.angle_mi = angles_mi[i];
-            //rec.centroid_x = data_2d[i][2];
-            //rec.centroid_y = data_2d[i][3];
             rec.centroid_x = centroids_x[i];
             rec.centroid_y = centroids_y[i];
             objects.push_back(rec);
+            ROS_INFO("> found %d at (%.02f, %.02f)", det2cat[i],
+                     centroids_x[i], centroids_y[i]);
         }
         apc::Recognition rec_msg;
         rec_msg.recognitions = objects;
@@ -160,14 +152,14 @@ void AnalyzeMask::receive_mask(const sensor_msgs::ImageConstPtr& mask) {
     }
     ROS_INFO("> bridge conversion good");
     if (cv_ptr->image.rows == 400) {
-        ROS_INFO("> copying mask");
+        ROS_INFO("> copying 2d mask");
         uchar* s = cv_ptr->image.data;
         uchar* d = mask_2d.data;
         for (int i = 0; i < 400*640; i++) {
             d[i] = s[i];
         }
     } else if (cv_ptr->image.rows == 480) {
-        ROS_INFO("> copying mask");
+        ROS_INFO("> copying 3d mask");
         uchar* s = cv_ptr->image.data;
         uchar* d = mask_3d.data;
         for (int i = 0; i < 480*640; i++) {
@@ -215,11 +207,16 @@ std::vector<Cloud> AnalyzeMask::apply_mask() {
         obj->is_dense = false;
         objects.push_back(obj);
     }
+    ROS_INFO("> created cluster storage");
 
     float nan = std::numeric_limits<float>::quiet_NaN();
     pcl::PointXYZ nan_p = pcl::PointXYZ(nan, nan, nan);
 
+    ROS_INFO("> processing cloud...");
     for (int x = 0; x < scene->width; x++) {
+        if (x > 0 && (x % 64) == 0) {
+            ROS_INFO("> %d%% done...", (x/64*10));
+        }
         for (int y = 0; y < scene->height; y++) {
             pcl::PointXYZ p = scene->points[y*x+x];
 
@@ -238,88 +235,6 @@ std::vector<Cloud> AnalyzeMask::apply_mask() {
 
     ROS_INFO("> applied mask");
     return objects;
-}
-
-// For each detection, return the angles of the major and minor axis
-// computed using a rotated bounding box, and a centroid
-// All angles are upright (from 270 to 0 to 90)
-// Return vector is always as long as # of detections
-// Each element is a vector for a detection
-// If a detection vector is empty, OpenCV couldn't find the region in the mask
-// Otherwise, order is major angle, minor angle, centroid x, centroid y
-std::vector<std::vector<float> > AnalyzeMask::analyze_2d(bool is3d) {
-    ROS_INFO("> doing 2d analysis");
-    cv::Mat mask;
-    if (is3d) {
-        mask = cv::Mat::zeros(480, 640, CV_8UC1);
-        mask.data = mask_3d.data;
-    } else {
-        mask = cv::Mat::zeros(400, 640, CV_8UC1);
-        mask.data = mask_2d.data;
-    }
-    std::vector<std::vector<float> > analysis;
-
-    ROS_INFO("> starting category iterations");
-    for (int i = 0; i <= ndet; i++) {
-        std::vector<float> data;
-        if (i == 0) {
-            analysis.push_back(data);
-            continue;
-        }
-        cv::Mat reg = cv::Mat::zeros(mask.rows, mask.cols, CV_8UC1);
-        uchar* m = mask.data;
-        uchar* r = reg.data;
-        for (int p = 0; p < mask.rows*mask.cols; p++) {
-            if (m[p] == (uchar)i) { r[p] = 1; }
-        }
-        ROS_INFO("> created region of interest");
-
-        std::vector<std::vector<cv::Point> > contours;
-        cv::findContours(reg, contours, CV_RETR_EXTERNAL, CV_CHAIN_APPROX_NONE);
-        ROS_INFO("> found contour");
-
-        int max_size = 0;
-        int max_idx = -1;
-        for (int j = 0; j < contours.size(); j++) {
-            if (contours[j].size() > max_size) {
-                max_size = contours[j].size();
-                max_idx = j;
-            }
-        }
-        if (max_idx == -1) {
-            analysis.push_back(data);
-            continue;
-        }
-
-        cv::RotatedRect bb = cv::minAreaRect(contours[max_idx]);
-        ROS_INFO("> fit rectangle");
-
-        float a = bb.angle;
-        float b = a - 90;
-        // map angle to be upright (between 270 to 0 to 90 degrees)
-        if (a > 90 && a <= 180) { a = a + 180; }
-        if (a > 180 && a < 270) { a = a - 180; }
-        if (b > 90 && b <= 180) { b = b + 180; }
-        if (b > 180 && b < 270) { b = b - 180; }
-
-        if (bb.size.height >= bb.size.width) {
-            data.push_back(a);
-            data.push_back(b);
-        } else {
-            data.push_back(b);
-            data.push_back(a);
-        }
-
-        cv::Moments moments = cv::moments(contours[max_idx]);
-        data.push_back((int)(moments.m10 / moments.m00));
-        data.push_back((int)(moments.m01 / moments.m00));
-        ROS_INFO("> calculated centroid");
-
-        analysis.push_back(data);
-    }
-
-    ROS_INFO("> completed 2d analysis");
-    return analysis;
 }
 
 // Returns centroid of each detected cluster
@@ -341,23 +256,16 @@ std::vector<std::vector<float> > AnalyzeMask::analyze_3d(std::vector<Cloud> obje
         std::vector<int> indices;
         pcl::removeNaNFromPointCloud(*obj, *obj, indices);
 
+        ROS_INFO("> removing cluster outliers");
         pcl::RadiusOutlierRemoval<pcl::PointXYZ> filt;
         filt.setInputCloud(obj);
         filt.setRadiusSearch(0.5);
         filt.setMinNeighborsInRadius(2);
         filt.filter(*obj);
 
+        ROS_INFO("> finding cluster centroid");
         Eigen::Vector4f centroid;
         pcl::compute3DCentroid(*obj, centroid);
-
-        /*
-        // naive way to compute width/height
-        pcl::PointXYZ min;
-        pcl::PointXYZ max;
-        pcl::getMinMax3D(*obj, *min, *max);
-        float width = max.y - min.y;
-        float height = max.z - min.z;
-        */
 
         // add centroid values
         stat.push_back(centroid[0]);
@@ -372,12 +280,10 @@ std::vector<std::vector<float> > AnalyzeMask::analyze_3d(std::vector<Cloud> obje
 }
 
 int main(int argc, char** argv) {
-    ROS_INFO(" init mask analysis node");
+    ROS_INFO("> init mask analysis node");
 
     ros::init(argc, argv, "AnalyzeMask");
-
     AnalyzeMask analyzer;
-
     ros::spin();
 }
 

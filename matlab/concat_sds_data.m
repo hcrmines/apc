@@ -10,7 +10,6 @@ det2cat = [];
 det2scores = [];
 ndet = 0;
 
-
 % Iterate through categories
 for i_c = 1 : numel(categories)
     catid = categories(i_c);
