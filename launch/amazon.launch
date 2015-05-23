@@ -1,0 +1,28 @@
+<?xml version="1.0"?>
+<launch>
+
+<!--
+  <node pkg="package_name" type="node_name" name="override_name">
+    
+  </node>
+
+<include file="$(find package_name)/directory/another.launch"/>
+-->
+
+<node pkg="apc" type="heuristic_control" name="heuristic_control" respawn="true">
+
+</node>
+
+<node pkg="apc" type="ActionBridge" name="ActionBridge" respawn="true">
+
+</node>
+
+<node pkg="apc" type="recognizeObjects_server" name="recognizeObjects_server" respawn="true">
+
+</node>
+
+<!--  <include file="$(find husky_control)/launch/control.launch"/>-->
+
+
+
+</launch>

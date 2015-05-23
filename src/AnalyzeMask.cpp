@@ -256,12 +256,15 @@ std::vector<std::vector<float> > AnalyzeMask::analyze_3d(std::vector<Cloud> obje
         std::vector<int> indices;
         pcl::removeNaNFromPointCloud(*obj, *obj, indices);
 
+	/*
         ROS_INFO("> removing cluster outliers");
         pcl::RadiusOutlierRemoval<pcl::PointXYZ> filt;
+	Cloud tmp (new pcl::PointCloud<pcl::PointXYZ>);
         filt.setInputCloud(obj);
         filt.setRadiusSearch(0.5);
         filt.setMinNeighborsInRadius(2);
-        filt.filter(*obj);
+        filt.filter(*tmp);
+	*/
 
         ROS_INFO("> finding cluster centroid");
         Eigen::Vector4f centroid;

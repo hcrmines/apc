@@ -2,6 +2,7 @@
 
 import json
 import os
+import copy
 
 def prioritizeWorkOrder():
 	json_data = open('apc.json')
@@ -136,12 +137,12 @@ class StateKeeper:
 		#print self.targets
 		for target in self.targets:
 			for state in self.states:
-				if objects[state.obj_id]==target[0]:
+				if state.obj_id in objects.keys() and objects[state.obj_id]==target[0]:
 				#and state.bin_loc==target[1]: #objects match #TODO
 					bonus = 0
 					if state.centroid_z == 0:
 						bonus = 100
-					target[3] = (target[2]*(state.confidence+1))+bonus-(target[4]*.5)
+					target[3] = (target[2]*(state.confidence+1))+bonus-(target[3]*.5)
 							#abs = grabScore+confidence + bonus - .5xattempt count
 					if target[3]>maxScore:
 						maxScore=target[3]

@@ -1,0 +1,23 @@
+# Define the goal
+# Valid actions
+uint8 MOVE_TO_POSE=0
+uint8 MOVE_TO_PICK=1
+uint8 MOVE_TO_DROP=2
+uint8 MOVE_TO_SHELF=3
+uint8 SCOOP_SHELF=4
+uint8 MOVE_ALONG_LINE=5
+
+uint8 RIGHT_ARM=100
+uint8 LEFT_ARM=101
+uint8 CHOOSE_ARM=102
+
+uint8 moveAction
+uint8 arm 
+std_msgs/String shelf
+geometry_msgs/Pose movePose  
+---
+# Define the result
+std_msgs/Bool moveSuccess
+---
+# Define a feedback message
+float32 percent_complete

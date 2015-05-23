@@ -27,8 +27,8 @@ class ActionBridge{
 };
 
 ActionBridge::ActionBridge() : client("MoveTo", true){
-  sub = nh.subscribe("/apc/move_server", 100, &ActionBridge::callback,this);
-  pub = nh.advertise<apc::Recognized>("/apc/successful_pickup",1);
+  sub = nh.subscribe("/apc/move_server", 20, &ActionBridge::callback,this);
+  pub = nh.advertise<apc::Recognized>("/apc/successful_pickup",20);
   client.waitForServer();
 }
 
@@ -90,7 +90,11 @@ void ActionBridge::callback(apc::Recognized info_msg){
 int main(int argc, char** argv){
   ROS_INFO(" init action server node");
   ros::init(argc, argv, "ActionBridge");
+  ros::AsyncSpinner spinner(2);
+  spinner.start();
   ActionBridge ab;
   ROS_INFO("action bridge created");
-  ros::spin();
+  ros::waitForShutdown();
+  return 0;
+//  ros::spin();
 }
