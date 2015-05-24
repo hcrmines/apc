@@ -64,6 +64,7 @@ class AnalyzeMask {
 
         std::vector<Cloud> apply_mask();
         std::vector<std::vector<float> > analyze_3d(std::vector<Cloud>);
+        cv::Mat remap(cv::Mat);
 };
 
 AnalyzeMask::AnalyzeMask() : itnh(nh) {
@@ -189,6 +190,12 @@ void AnalyzeMask::receive_mask(const sensor_msgs::ImageConstPtr& mask) {
         ROS_ERROR("! image incorrect size");
     }
     ROS_INFO("> converted mask");
+    if (cv_ptr->image.rows == 400) {
+        mask_2d = remap(mask_2d);
+    } else if (cv_ptr->image.rows == 480) {
+        mask_3d = remap(mask_3d);
+    }
+    ROS_INFO("> remapped mask");
 }
 
 void AnalyzeMask::receive_scene(const sensor_msgs::PointCloud2& cloud) {
@@ -319,6 +326,40 @@ std::vector<std::vector<float> > AnalyzeMask::analyze_3d(std::vector<Cloud> obje
     ROS_INFO("> completed 3d analysis");
     return statistics;
 }
+
+cv::Mat AnalyzeMask::remap(cv::Mat mask) {
+    ROS_INFO("> starting remap");
+    cv::Mat Kd = (cv::Mat_<float>(3, 3) << 575.8157, 0, 314.5, 0, 575.8157, 235.5, 0, 0, 1);
+    cv::Mat Kdi = Kd.inv();
+    cv::Mat Kc = (cv::Mat_<float>(3, 3) << 525, 0, 319.5, 0, 525, 239.5, 0, 0, 1);
+
+    cv::Mat rect = cv::Mat::zeros(mask.rows, mask.cols, CV_8UC1);
+
+    cv::Mat p = cv::Mat(3, 1, CV_32FC1, (float)1);
+    cv::Mat q = cv::Mat(3, 1, CV_32FC1, (float)1);
+    int x_, y_;
+
+    for (int x = 0; x < mask.cols; x++) {
+        if (x > 0 && (x % 64) == 0) {
+            ROS_INFO("> %d%% done...", (x/64*10));
+        }
+        for (int y = 0; y < mask.rows; y++) {
+            p.at<float>(0, 0) = x;
+            p.at<float>(1, 0) = y;
+
+            q = Kdi * Kc * p;
+            x_ = round(q.at<float>(0, 0));
+            y_ = round(q.at<float>(1, 0));
+
+            if (x_ >= 0 && x_ < mask.cols && y_ >= 0 && y_ < mask.rows) {
+                rect.at<uchar>(y, x) = mask.at<uchar>(y_, x_);
+            }
+        }
+    }
+
+    return rect;
+}
+
 
 int main(int argc, char** argv) {
     ROS_INFO("> init mask analysis node");
