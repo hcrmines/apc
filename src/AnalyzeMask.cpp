@@ -5,10 +5,12 @@
 #include <pcl_conversions/pcl_conversions.h>
 #include <sensor_msgs/PointCloud.h>
 #include <sensor_msgs/PointCloud2.h>
+#include <std_msgs/Header.h>
 #include <sensor_msgs/point_cloud_conversion.h>
 #include <tf/transform_listener.h>
 
 #include <pcl/point_types.h>
+#include <pcl/common/transforms.h>
 #include <pcl/features/normal_3d.h>
 #include <pcl/filters/radius_outlier_removal.h>
 #include <Eigen/Dense>
@@ -37,6 +39,7 @@ class AnalyzeMask {
         cv::Mat mask_3d;
         cv::Mat mask_2d;
         Cloud scene;
+        std_msgs::Header scene_header;
 
         int job_number;
 
@@ -52,10 +55,12 @@ class AnalyzeMask {
         ros::Subscriber scene_sub;
         image_transport::Subscriber mask_sub;
         ros::Publisher rec_pub;
+        ros::Publisher glue_pub;
 
         ros::NodeHandle nh;
         image_transport::ImageTransport itnh;
-        tf::TransformListener transform;
+        //tf::TransformListener transform;
+        Eigen::Affine3f transform;
 
         std::vector<Cloud> apply_mask();
         std::vector<std::vector<float> > analyze_3d(std::vector<Cloud>);
@@ -67,13 +72,18 @@ AnalyzeMask::AnalyzeMask() : itnh(nh) {
  
     mask_info_sub = nh.subscribe("/apc/recognition_information", 1, 
                                  &AnalyzeMask::receive_mask_info, this);
-    scene_sub = nh.subscribe("/apc/recognition_pcl", 1, 
-                             &AnalyzeMask::receive_scene, this);
-    //scene_sub = nh.subscribe("/camera/depth/points", 1, 
+    //scene_sub = nh.subscribe("/apc/recognition_pcl", 1, 
     //                         &AnalyzeMask::receive_scene, this);
+    scene_sub = nh.subscribe("/camera/depth/points", 1, 
+                             &AnalyzeMask::receive_scene, this);
     mask_sub = itnh.subscribe("/apc/recognition_mask_image", 1, 
                               &AnalyzeMask::receive_mask, this);
     rec_pub = nh.advertise<apc::Recognition>("/apc/recognition", 1);
+    glue_pub = nh.advertise<sensor_msgs::PointCloud2>("test", 1);
+
+    transform = Eigen::Affine3f::Identity();
+    transform.translation() << 0.15, 0.09, 1.08;
+    transform.rotate(Eigen::AngleAxisf(0.68, Eigen::Vector3f::UnitY()));
 }
 
 // Receive flag for 2d/3d, point cloud if necessary, and two vectors
@@ -97,6 +107,8 @@ void AnalyzeMask::receive_mask_info(apc::MatInfo mask_msg) {
         std::vector<apc::Recognized> objects;
         for (int i = 1; i <= ndet; i++) {
             if (data_3d[i].size() == 0) { continue; }
+            if ((int)centroids_x[i] == -1) { continue; }
+            if (det2cat[i] > 30) { continue; }
             apc::Recognized rec;
             rec.is3d = mask_msg.is3d;
             rec.job_number = job_number;
@@ -115,10 +127,17 @@ void AnalyzeMask::receive_mask_info(apc::MatInfo mask_msg) {
         apc::Recognition rec_msg;
         rec_msg.recognitions = objects;
         rec_pub.publish(rec_msg);
+
+        sensor_msgs::PointCloud2::Ptr testmsg (new sensor_msgs::PointCloud2);
+        pcl::toROSMsg(*clusters[58], *testmsg);
+        //pcl::toROSMsg(*scene, *testmsg);
+        testmsg->header = scene_header;
+        glue_pub.publish(testmsg);
     } else {
         std::vector<apc::Recognized> objects;
         for (int i = 1; i <= ndet; i++) {
-            if (centroids_x[i] == -1) { continue; }
+            if ((int)centroids_x[i] == -1) { continue; }
+            if (det2cat[i] > 30) { continue; }
             apc::Recognized rec;
             rec.is3d = mask_msg.is3d;
             rec.job_number = job_number;
@@ -173,7 +192,6 @@ void AnalyzeMask::receive_mask(const sensor_msgs::ImageConstPtr& mask) {
 }
 
 void AnalyzeMask::receive_scene(const sensor_msgs::PointCloud2& cloud) {
-    //ROS_INFO("> received point cloud");
     Cloud tmp (new pcl::PointCloud<pcl::PointXYZ>);
     /*
     // convert and transform the point cloud
@@ -181,13 +199,20 @@ void AnalyzeMask::receive_scene(const sensor_msgs::PointCloud2& cloud) {
     sensor_msgs::PointCloud  p2;
     sensor_msgs::PointCloud2 p3;
     sensor_msgs::convertPointCloud2ToPointCloud(cloud, p1);
+    ROS_INFO("> size %d", (int)p1.points.size());
+    transform.waitForTransform("torso", cloud.header.frame_id, 
+                               cloud.header.stamp, ros::Duration(10));
     transform.transformPointCloud("torso", p1, p2);
-    sensor_msgs::convertPointCloudToPointCloud2(p1, p3);
-    pcl::fromROSMsg(p3, *scene);
+    ROS_INFO("> size %d", (int)p2.points.size());
+    sensor_msgs::convertPointCloudToPointCloud2(p2, p3);
+    pcl::fromROSMsg(p3, *tmp);
     */
+    
     pcl::fromROSMsg(cloud, *tmp);
+    //pcl::transformPointCloud(*tmp, *tmp, transform);
+    
     scene = tmp;
-    //ROS_INFO("> converted point cloud");
+    scene_header = cloud.header;
 }
 
 // Return a vector of point clouds, where each point cloud represents a
@@ -204,7 +229,7 @@ std::vector<Cloud> AnalyzeMask::apply_mask() {
         obj->width = scene->width;
         obj->height = scene->height;
         obj->resize(obj->width * obj->height);
-        obj->is_dense = false;
+        obj->is_dense = scene->is_dense;
         objects.push_back(obj);
     }
     ROS_INFO("> created cluster storage");
@@ -213,21 +238,29 @@ std::vector<Cloud> AnalyzeMask::apply_mask() {
     pcl::PointXYZ nan_p = pcl::PointXYZ(nan, nan, nan);
 
     ROS_INFO("> processing cloud...");
-    for (int x = 0; x < scene->width; x++) {
-        if (x > 0 && (x % 64) == 0) {
-            ROS_INFO("> %d%% done...", (x/64*10));
+    ROS_INFO("> height %d, width %d", scene->height, scene->width);
+
+    int ct = 0;
+    for (int x = 0; x < mask_3d.rows; x++) {
+        if (x > 0 && (x % 48) == 0) {
+            ROS_INFO("> %d%% done...", (x/48*10));
         }
-        for (int y = 0; y < scene->height; y++) {
-            pcl::PointXYZ p = scene->points[y*x+x];
+        for (int y = 0; y < mask_3d.cols; y++, ct++) {
+            //pcl::PointXYZ p = scene->points[y*x+x];
+            pcl::PointXYZ p = scene->points[ct];
 
             // get corresponding mask value (detection id)
-            int det = mask_3d.at<int>(x, y);
+            int det = (int)mask_3d.at<uchar>(x, y);
 
             for (int i = 1; i <= ndet; i++) {
                 if (i == det) {
-                    objects[i]->points[y*x+x] = p;
+                    objects[i]->points[ct].x = p.x;
+                    objects[i]->points[ct].y = p.y;
+                    objects[i]->points[ct].z = p.z;
                 } else {
-                    objects[i]->points[y*x+x] = nan_p;
+                    objects[i]->points[ct].x = nan;
+                    objects[i]->points[ct].y = nan;
+                    objects[i]->points[ct].z = nan;
                 }
             }
         }
@@ -247,11 +280,16 @@ std::vector<std::vector<float> > AnalyzeMask::analyze_3d(std::vector<Cloud> obje
 
     for (int i = 0; i < objects.size(); i++) {
         std::vector<float> stat;
-        if (i == 0) {
+        if (i == 0 || (int)centroids_x[i] == -1) {
             statistics.push_back(stat);
             continue;
         }
         Cloud obj = objects[i];
+        int ct = 0;
+        for (int j = 0; j < obj->points.size(); j++) {
+            if (!isnan(obj->points[j].x)) { ct++; }
+        }
+        ROS_INFO("> cloud %d contains %d points", i, ct);
 
         std::vector<int> indices;
         pcl::removeNaNFromPointCloud(*obj, *obj, indices);

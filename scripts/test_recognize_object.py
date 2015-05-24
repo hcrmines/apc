@@ -28,8 +28,7 @@ if __name__ == "__main__":
     if len(sys.argv) == 2:
         c = int(sys.argv[1])
     else:
-        print usage()
-        sys.exit(1)
+        c = 0
     print "attempting to recognize objects"
     print test_rec(c)
     # print "There are " + str(countChars_client(s)) + " characters in '" + s
