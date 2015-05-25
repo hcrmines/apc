@@ -30,7 +30,8 @@ class Actuator{
 		ros::NodeHandle nh;
 		ros::Publisher rightGripper;
 		ros::Publisher leftGripper;
-		ros::Subscriber rangeSubscriber;
+		ros::Subscriber rangeSubscriber_l;
+		ros::Subscriber rangeSubscriber_r;
 		actionlib::SimpleActionServer<apc::MoveToAction> moveToServer;
 		moveit::planning_interface::MoveGroup rightArm;
 		std::map<char, geometry_msgs::Point> shelf_positions;
@@ -38,9 +39,11 @@ class Actuator{
 		void calcShelfPositions();
 	private:
 		bool approachAndTestRange(geometry_msgs::Point, char arm, geometry_msgs::Point);
-		bool tooFarFromObject();
-		void rangeCallback(const sensor_msgs::Range& rangemsg);
-		float currentRange;
+		bool tooFarFromObject(char);
+		void rangeCallback_l(const sensor_msgs::Range& rangemsg);
+		void rangeCallback_r(const sensor_msgs::Range& rangemsg);
+		float currentRange_l;
+		float currentRange_r;
  
 		bool pushGrip(char armName, char shelfName, geometry_msgs::Point);
 		bool regularGrip(char armName, geometry_msgs::Point);
@@ -75,8 +78,10 @@ Actuator::Actuator() : rightArm("both_arms"), moveToServer(nh, "MoveTo", boost::
 
 	rightGripper = nh.advertise<baxter_core_msgs::EndEffectorCommand>("/robot/end_effector/right_gripper/command", 1);
 	leftGripper = nh.advertise<baxter_core_msgs::EndEffectorCommand>("/robot/end_effector/left_gripper/command", 1);
-	rangeSubscriber = nh.subscribe("/robot/range/left_hand_range/state", 1, &Actuator::rangeCallback, this); 
-	currentRange = 1000.0;
+	rangeSubscriber_l = nh.subscribe("/robot/range/left_hand_range/state", 1, &Actuator::rangeCallback_l, this); 
+	rangeSubscriber_r = nh.subscribe("/robot/range/right_hand_range/state", 1, &Actuator::rangeCallback_r, this); 
+	currentRange_l = 1000.0;
+	currentRange_r = 1000.0;
 }
 
 void Actuator::executeMotion(const apc::MoveToGoalConstPtr& goal){
@@ -284,12 +289,12 @@ bool Actuator::approachAndTestRange(geometry_msgs::Point objectPoint, char armNa
 	pose.orientation.y = 0.7071;
 	pose.position = objectPoint;
 	pose.position.x = shelfPoint.x;
-	while(tooFarFromObject() && moveToPose(pose, armName)){
+	while(tooFarFromObject(armName) && moveToPose(pose, armName)){
 		pose.position.x += moveAmount;
 	}
 	// if the hand is too far from the object
 	// then the loop must have exited due to failed planning so return false
-	if(!tooFarFromObject()){
+	if(!tooFarFromObject(armName)){
 		rightArm.stop();
 		closeGripper(armName);
 		return true;
@@ -298,8 +303,12 @@ bool Actuator::approachAndTestRange(geometry_msgs::Point objectPoint, char armNa
 }
 
 
-bool Actuator::tooFarFromObject(){
-	return currentRange <= OBJ_DIST_RANGE;
+bool Actuator::tooFarFromObject(char armName){
+	if(armName == apc::MoveToGoal::RIGHT_ARM){
+        return currentRange_r <= OBJ_DIST_RANGE;
+    else {
+        return currentRange_l <= OBJ_DIST_RANGE;
+    }
 }
 
 bool Actuator::moveToPose(geometry_msgs::Pose goalPose, char armName){
@@ -377,8 +386,12 @@ void Actuator::openGripper(char armName){
 		leftGripper.publish(cmd);
 }
 
-void Actuator::rangeCallback(const sensor_msgs::Range& rangemsg){
-	currentRange = rangemsg.range;	
+void Actuator::rangeCallback_l(const sensor_msgs::Range& rangemsg){
+	currentRange_l = rangemsg.range;	
+}
+
+void Actuator::rangeCallback_r(const sensor_msgs::Range& rangemsg){
+	currentRange_r = rangemsg.range;	
 }
 
 int main(int argc, char **argv){
