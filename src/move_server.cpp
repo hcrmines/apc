@@ -306,6 +306,7 @@ bool Actuator::approachAndTestRange(geometry_msgs::Point objectPoint, char armNa
 bool Actuator::tooFarFromObject(char armName){
 	if(armName == apc::MoveToGoal::RIGHT_ARM){
         return currentRange_r <= OBJ_DIST_RANGE;
+    }
     else {
         return currentRange_l <= OBJ_DIST_RANGE;
     }

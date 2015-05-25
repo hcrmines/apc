@@ -9,7 +9,7 @@ def prioritizeWorkOrder():
 	data = json.load(json_data)
 	bin_contents = data['bin_contents']
 	work_order = data['work_order']
-	
+
 	#CONST_BIN_NAMES = ['bin_A',
 	#                   'bin_B',
 	#                   'bin_C',
@@ -22,7 +22,7 @@ def prioritizeWorkOrder():
 	#                   'bin_J',
 	#                   'bin_K',
 	#                   'bin_L']
-		
+
 	# dictionary with item name as key and [num grips, bonus] as value
 	CONST_ITEM_details = {"oreo_mega_stuf":[0, 0],
 	                    "champion_copper_plus_spark_plug":[3, 0],
@@ -40,7 +40,7 @@ def prioritizeWorkOrder():
 	                    "laugh_out_loud_joke_book":[0.2, 3],
 	                    "cheezit_big_original":[0, 0],
 	                    "paper_mate_12_count_mirado_black_warrior":[2, 0],
-	                    "feline_greenies_dental_treats":[2, 0],
+	                    "feline_greenies_dental_treats":[1, 0],
 	                    "elmers_washable_no_run_school_glue":[3, 0],
 	                    "mead_index_cards":[0.5, 0],
 	                    "rolodex_jumbo_pencil_cup":[0, 0],
@@ -49,14 +49,14 @@ def prioritizeWorkOrder():
 	                    "mark_twain_huckleberry_finn":[0.5, 3],
 	                    "kyjen_squeakin_eggs_plush_puppies":[3, 1],
 	                    "kong_sitting_frog_dog_toy":[3, 1]}
-	
+
 	# we have no gripping test data for oreo_mega_stuf, expo_dry_erase_board_eraser, and
 	#kong_air_dog_squeakair_tennis_ball
-	
+
 	# the grips are for small gripper. mommys_helper_outlet_plugs, rolodex_jumbo_pencil_cup,
 	# cheezit_big_original, and first_years_take_and_toss_straw_cup all have a gripping score
 	#of 2 using large gripper
-	
+
 	single_items = {}
 	double_items = {}
 	multi_items = {}
@@ -67,7 +67,7 @@ def prioritizeWorkOrder():
 			double_items[bin_name] = bin_contents[bin_name]
 		if len(bin_contents[bin_name]) > 2:
 			multi_items[bin_name] = bin_contents[bin_name]
-	
+
 	scored_work_order = []
 	for order in work_order:
 		grasp = CONST_ITEM_details[order['item']][0]
@@ -88,7 +88,7 @@ def prioritizeWorkOrder():
 class StateKeeper:
 
 	fileName = 'savefile.txt'
-	
+
 	states = []
 	#data
 	targets = []
@@ -109,11 +109,11 @@ class StateKeeper:
 		tempLambda = lambda d: d.obj_id==data.obj_id and \
 			d.job_number!=data.job_number #and /
 			#d.bin_loc==data.bin_loc
-		
-		objectsFound = filter(tempLambda, self.states) 
+
+		objectsFound = filter(tempLambda, self.states)
 		for eachObject in objectsFound:
 			self.states.remove(eachObject)
-				
+
 		self.states.append(copy.deepcopy(data))
 
 	def successState(self, data):
@@ -125,10 +125,15 @@ class StateKeeper:
 		tempLambda = lambda d: d.obj_id==data.obj_id and \
 			d.job_number==data.job_number #and \
 			#d.bin_loc==data.bin_loc
-		
-		objectsFound = filter(tempLambda, self.states) 
+
+		objectsFound = filter(tempLambda, self.states)
 		for eachObject in objectsFound:
 			eachObject.confidence = 0
+
+
+	def resetScores():
+		self.targets = prioritizeWorkOrder()
+
 
 	def getNextTarget(self):
 		maxScore = -1
@@ -140,7 +145,7 @@ class StateKeeper:
 				if state.obj_id in objects.keys() and objects[state.obj_id]==target[0]:
 				#and state.bin_loc==target[1]: #objects match #TODO
 					bonus = 0
-					if state.centroid_z == 0:
+					if not state.is3d: #if 2D
 						bonus = 100
 					target[3] = (target[2]*(state.confidence+1))+bonus-(target[3]*.5)
 							#abs = grabScore+confidence + bonus - .5xattempt count
@@ -148,14 +153,14 @@ class StateKeeper:
 						maxScore=target[3]
 						maxObject=state
 			#end for
-			target[3] = (target[2]*(1)) 
+			target[3] = (target[2]*(1))
 			if target[3]>maxScore:
 				maxScore=target[3]
 				maxTarget = target
 				maxObject=target[1]
 
 		maxTarget[3] += 1
-		return maxObject
+		return maxObject, maxTarget
 
 
 objects = {1:"champion_copper_plus_spark_plug",
