@@ -190,9 +190,7 @@ void AnalyzeMask::receive_mask(const sensor_msgs::ImageConstPtr& mask) {
         ROS_ERROR("! image incorrect size");
     }
     ROS_INFO("> converted mask");
-    if (cv_ptr->image.rows == 400) {
-        mask_2d = remap(mask_2d);
-    } else if (cv_ptr->image.rows == 480) {
+    if (cv_ptr->image.rows == 480) {
         mask_3d = remap(mask_3d);
     }
     ROS_INFO("> remapped mask");
