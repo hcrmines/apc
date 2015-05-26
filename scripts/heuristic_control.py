@@ -1,14 +1,14 @@
 #!/usr/bin/env python
 import rospy
 from control_database import StateKeeper
-from controller.py import Controller
+from controller import Controller
 from apc.srv import *
 from apc.msg import Recognized, Recognition
 from geometry_msgs.msg import Pose, Point, Quaternion
 import copy
-
+import sys
 database = StateKeeper()
-controller = Controller()
+
 
 #pub_move = rospy.Publisher("/apc/move_server", Recognized, queue_size=20)
 
@@ -40,8 +40,11 @@ def listener():
 
 def launchGraspJobs():
 	state, target = database.getNextTarget()
-	print x
-	if type(state)!=type("") : #go grab
+	# print database.states
+	print state,target
+	# print type(state)
+	# print isinstance(state,Recognized)
+	if isinstance(state,Recognized): #go grab
 		print "publishing to move: ",
 		#pub_move.publish(x)
 		binName = target[1] #char 'a'
@@ -64,23 +67,27 @@ def launchGraspJobs():
 		pose.orientation = q
 		arm2d, armMove = choose_arm(binName)
 		if state.is3d:
+			print 'ere really'
+			sys.stdout.flush()
 			controller.move_to_pick(binName, armMove, pose)
 		else:
 			controller.move_along_line(binName, armMove, point)
 			database.resetScores()
-			launchRecogJobs(0)
+		launchRecogJobs(0)
 	else: #Move to bin for picture
-		launchRecogJobs(x)
+		launchRecogJobs(state)
 
 
-def choose_arm(bin):
-	if data.bin_num%3 < 1:
+def choose_arm(binn):
+	binNumber = ord(binn) - ord('A')
+
+	if binNumber%3 < 1:
 		arm2d = 1
 		armMove = 101 #Left ARM
 	else:
 		arm2d = 2
 		armMove = 100 #Right ARM
-	return arm2d, arm
+	return arm2d, armMove
 
 
 def test_rec(camera):
@@ -121,18 +128,21 @@ def launchRecogJobs(recognitionType):
 
 #		pub_move.publish(tempRecognized)
 
+		arm2d, armMove = choose_arm(recognitionType)
 
 		controller.move_to_bin(recognitionType, armMove)
 		test_rec(arm2d)
 
-		print "sent: ", tempRecognized
+		print "sent", recognitionType
 
 
 if __name__ == '__main__':
 	rospy.init_node('heuristic_control', anonymous=True)
+	global controller
+	controller = Controller()
 	listener()
 	#pub_recognition = rospy.Publisher("/apc/recognized", Recognized)
 	#pub_move = rospy.Publisher("/apc/move_server", Recognized, queue_size=20)
-#	launchRecogJobs('A')
-#	launchGraspJobs()
+	launchRecogJobs(0)
+	# launchGraspJobs()
 	rospy.spin()

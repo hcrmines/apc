@@ -41,13 +41,13 @@ class Recognizer:
         self.pub_cloud = rospy.Publisher('/apc/recognition_pcl',
                                          PointCloud2, queue_size = 1)
 
-        rospy.Subscriber("/camera/depth/points", 
+        rospy.Subscriber("/camera/depth/points",
                          PointCloud2, self.update_point_cloud)
-        rospy.Subscriber("/camera/rgb/image_raw", 
+        rospy.Subscriber("/camera/rgb/image_raw",
                          Image, self.update_kinect)
-        rospy.Subscriber("/cameras/right_hand_camera/image", 
+        rospy.Subscriber("/cameras/right_hand_camera/image",
                          Image, self.update_right)
-        rospy.Subscriber("/cameras/left_hand_camera/image", 
+        rospy.Subscriber("/cameras/left_hand_camera/image",
                          Image, self.update_left)
 
         self.do_recognition = False
@@ -70,7 +70,7 @@ class Recognizer:
     def recognize(self):
         self.pub_cloud.publish(self.cloud)
         self.do_recognition = False
-        
+
         ### Can run this part once, then comment out.
         ### Will keep loading the 'mat' file.
         ###
@@ -78,7 +78,7 @@ class Recognizer:
         #os.system(r"""cd /home/hcrws1/Documents/Toolbox/sds_eccv2014 && rm -rf cachedir/* && matlab -nodisplay -nosplash -nodesktop -r "run('startup_sds.m');run('demo_apc.m');exit;" """)
         ###
 
-        rr = sio.loadmat('/home/hcrws1/Documents/Toolbox/sds_eccv2014/recognition_results.mat')
+        rr = sio.loadmat('/home/hcr-ws/Documents/Toolbox/sds_eccv2014/recognition_results.mat')
 
         if self.cam_num == 0:
             self.mask_3d = rr['mask']
@@ -91,10 +91,12 @@ class Recognizer:
         self.angles_ma = rr['ang_ma'][0]
         self.angles_mi = rr['ang_mi'][0]
 
-	if self.cam_num == 0:
-        	self.pub_mask.publish(self.bridge.cv2_to_imgmsg(self.mask_3d, "mono8"))
-	elif cam_num in [1, 2]:
-        	self.pub_mask.publish(self.bridge.cv2_to_imgmsg(self.mask_2d, "mono8"))
+    	if self.cam_num == 0:
+            print "publishing mask"
+            self.pub_mask.publish(self.bridge.cv2_to_imgmsg(self.mask_3d, "mono8"))
+    	elif self.cam_num in [1, 2]:
+            print "publishing hand camera"
+            self.pub_mask.publish(self.bridge.cv2_to_imgmsg(self.mask_2d, "mono8"))
         self.pub_cloud.publish(self.cloud)
         time.sleep(2);
 
@@ -107,7 +109,7 @@ class Recognizer:
                                           self.centroids_y,
                                           self.angles_ma,
                                           self.angles_mi))
-
+        print "Recognize Status: Done"
     def acknowledge(self, req):
         self.cam_num = req.camera_num
         if self.cam_num in [0, 1, 2]:

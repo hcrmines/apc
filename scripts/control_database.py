@@ -4,6 +4,35 @@ import json
 import os
 import copy
 
+objects = {1:"champion_copper_plus_spark_plug",
+    2:"cheezit_big_original",
+    3:"crayola_64_ct",
+    4:"dove_beauty_bar ",
+    5:"dr_browns_bottle_brush",
+    6:"elmers_washable_no_run_school_glue",
+    7:"expo_dry_erase_board_eraser",
+    8:"feline_greenies_dental_treats",
+    9:"first_years_take_and_toss_straw_cup",
+    10:"genuine_joe_plastic_stir_sticks",
+    11:"highland_6539_self_stick_notes",
+    12:"kong_air_dog_squeakair_tennis_ball",
+    13:"kong_duck_dog_toy",
+    14:"kong_sitting_frog_dog_toy",
+    15:"kyjen_squeakin_eggs_plush_puppies",
+    16:"laugh_out_loud_joke_book",
+    17:"mark_twain_huckleberry_finn",
+    18:"mead_index_cards",
+    19:"mommys_helper_outlet_plugs",
+    20:"munchkin_white_hot_duck_bath_toy",
+    21:"one_with_nature_soap_dead_sea_mud ",
+    22:"oreo_mega_stuf",
+    23:"paper_mate_12_count_mirado_black_warrior",
+    24:"rolodex_jumbo_pencil_cup",
+    25:"safety_works_safety_glasses",
+    26:"sharpie_accent_tank_style_highlighters",
+    27:"stanley_66_052"
+}
+
 def prioritizeWorkOrder():
 	json_data = open('apc.json')
 	data = json.load(json_data)
@@ -79,9 +108,9 @@ def prioritizeWorkOrder():
 		else:
 			bin_type = 0
 		score = ((0.5*bonus+bin_type)*grasp/13.5)
-		scored_work_order.append([order['item'], order['bin'][-1], score, 0]) #Currently uppercase
+		scored_work_order.append([order['item'], order['bin'][-1], score, completed[order['item']]]) #Currently uppercase
 	scored_work_order_decreasing = sorted(scored_work_order, key=lambda x: x[2], reverse=True)
-	#pprint(scored_work_order_decreasing)
+	#pprint(scored_work_order_decreasing)ine(binName, armMove, point)
 	json_data.close()
 	return scored_work_order_decreasing
 
@@ -93,7 +122,8 @@ class StateKeeper:
 	#data
 	targets = []
 	#tuple('objname', bin, grabScore, absoluteScore)
-	completed = []
+	global completed, objects
+	completed = {o: 1 for o in objects.values()}
 	#tuple('objname', bin)
 
 	def __init__(self):
@@ -131,63 +161,36 @@ class StateKeeper:
 			eachObject.confidence = 0
 
 
-	def resetScores():
+	def resetScores(self):
 		self.targets = prioritizeWorkOrder()
 
 
 	def getNextTarget(self):
-		maxScore = -1
+		maxScore = None
 		maxObject = 0
 		maxTarget = 0
-		#print self.targets
 		for target in self.targets:
+			print target
 			for state in self.states:
 				if state.obj_id in objects.keys() and objects[state.obj_id]==target[0]:
 				#and state.bin_loc==target[1]: #objects match #TODO
 					bonus = 0
 					if not state.is3d: #if 2D
 						bonus = 100
-					target[3] = (target[2]*(state.confidence+1))+bonus-(target[3]*.5)
+					print "before ", target[2]
+					target[2] = (target[2]*(max([state.confidence,.5])))+bonus-(target[3]*.5)
+					print "after: ", target[2]
 							#abs = grabScore+confidence + bonus - .5xattempt count
-					if target[3]>maxScore:
-						maxScore=target[3]
+					if target[2]>maxScore:
+						maxScore=target[2]
 						maxObject=state
+						maxTarget = target
 			#end for
-			target[3] = (target[2]*(1))
-			if target[3]>maxScore:
-				maxScore=target[3]
+			target[2] = (target[2]*(1))-(target[3]*.5)
+			if target[2]>maxScore:
+				maxScore=target[2]
 				maxTarget = target
 				maxObject=target[1]
-
 		maxTarget[3] += 1
+		completed[maxTarget[0]] += 1
 		return maxObject, maxTarget
-
-
-objects = {1:"champion_copper_plus_spark_plug",
-    2:"cheezit_big_original",
-    3:"crayola_64_ct",
-    4:"dove_beauty_bar ",
-    5:"dr_browns_bottle_brush",
-    6:"elmers_washable_no_run_school_glue",
-    7:"expo_dry_erase_board_eraser",
-    8:"feline_greenies_dental_treats",
-    9:"first_years_take_and_toss_straw_cup",
-    10:"genuine_joe_plastic_stir_sticks",
-    11:"highland_6539_self_stick_notes",
-    12:"kong_air_dog_squeakair_tennis_ball",
-    13:"kong_duck_dog_toy",
-    14:"kong_sitting_frog_dog_toy",
-    15:"kyjen_squeakin_eggs_plush_puppies",
-    16:"laugh_out_loud_joke_book",
-    17:"mark_twain_huckleberry_finn",
-    18:"mead_index_cards",
-    19:"mommys_helper_outlet_plugs",
-    20:"munchkin_white_hot_duck_bath_toy",
-    21:"one_with_nature_soap_dead_sea_mud ",
-    22:"oreo_mega_stuf",
-    23:"paper_mate_12_count_mirado_black_warrior",
-    24:"rolodex_jumbo_pencil_cup",
-    25:"safety_works_safety_glasses",
-    26:"sharpie_accent_tank_style_highlighters",
-    27:"stanley_66_052"
-}
